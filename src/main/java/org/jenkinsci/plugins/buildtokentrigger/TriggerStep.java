@@ -334,7 +334,7 @@ public class TriggerStep extends Step implements Serializable {
             data.append(URLEncoder.encode(step.job, "UTF-8"));
             data.append("&token=");
             data.append(URLEncoder.encode(secret.getPlainText(), "UTF-8"));
-            if (step.delay != 0 && step.delay >= 0) {
+            if (step.delay != null && step.delay >= 0) {
                 data.append("&delay=").append(step.delay);
             }
             for (Map.Entry<String, String> entry : step.parameters.entrySet()) {
