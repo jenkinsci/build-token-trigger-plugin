@@ -64,6 +64,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import jenkins.model.Jenkins;
 import jenkins.model.JenkinsLocationConfiguration;
+import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.workflow.steps.MissingContextVariableException;
@@ -171,11 +172,24 @@ public class TriggerStep extends Step implements Serializable {
         @Override
         public TriggerStep newInstance(@Nullable StaplerRequest req, @Nonnull JSONObject json)
                 throws FormException {
-            assert req != null;
             Map<String, String> parameters = new HashMap<>();
-            for (TriggerParameter p : req.bindJSONToList(TriggerParameter.class, json.get("parametersList"))) {
-                if (!p.getKey().isEmpty()) {
-                    parameters.put(p.getKey(), p.getValue());
+            Object parametersList = json.get("parametersList");
+            if (req != null) {
+                for (TriggerParameter p : req.bindJSONToList(TriggerParameter.class, parametersList)) {
+                    if (!p.getKey().isEmpty()) {
+                        parameters.put(p.getKey(), p.getValue());
+                    }
+                }
+            } else {
+                if (parametersList instanceof JSONObject) {
+                    JSONObject j = (JSONObject) parametersList;
+                    parameters.put(j.getString("key"), j.getString("value"));
+                } else if (parametersList instanceof JSONArray) {
+                    JSONArray a = (JSONArray) parametersList;
+                    for (int i = 0; i < a.size(); i++) {
+                        JSONObject j = a.getJSONObject(i);
+                        parameters.put(j.getString("key"), j.getString("value"));
+                    }
                 }
             }
             String delayStr = json.getString("delay");
