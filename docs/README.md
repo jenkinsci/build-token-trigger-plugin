@@ -6,8 +6,19 @@ The Jenkins that you want to trigger a build on must have the [Build Authorizati
 
 You need to create a *Jenkins Build Token* credentials that contains the token.
 
-The pipeline step then looks something like:
+![](build-token-credentials.png)
+
+You can use the pipeline syntax Snippet Generator to prototype your step
+
+![](build-token-trigger.png)
+
+Once you have the prototype step configured, click *Generate Pipeline Script* to generate the snippet:
+
+![](snippet-generator.png)
+
+The resulting pipeline step will look something like:
 
 ```
-buildTokenTrigger jenkinsUrl: 'http://url.of.remote.jenkins', credentialsId: 'id-of-build-token-credentials', job: 'full/name/of/job', delay: 0, parameters: [a:'some value',b:'another value']
+buildTokenTrigger credentialsId: 'deploy-job', delay: 30, jenkinsUrl: 'http://jenkins.example.com', job: 'site/production/deploy', parameters: [version: 'latest']
 ```
+
