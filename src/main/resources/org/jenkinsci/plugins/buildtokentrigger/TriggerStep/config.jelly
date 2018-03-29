@@ -41,5 +41,11 @@
     <f:entry field="delay" title="${%Quiet period}">
       <f:textbox/>
     </f:entry>
+    <f:entry field="ignoreMissing">
+      <f:checkbox title="${%Do not fail if the job cannot be found}"/>
+    </f:entry>
+    <f:entry field="ignoreUnqueued">
+      <f:checkbox title="${%Do not fail if the job cannot be queued}"/>
+    </f:entry>
   </f:advanced>
 </j:jelly>

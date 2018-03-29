@@ -28,6 +28,7 @@ import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.IdCredentials;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import hudson.AbortException;
 import hudson.Extension;
 import hudson.ProxyConfiguration;
 import hudson.Util;
@@ -42,7 +43,6 @@ import hudson.security.ACL;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import hudson.util.Secret;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Serializable;
@@ -90,6 +90,8 @@ public class TriggerStep extends Step implements Serializable {
     private final Map<String, String> parameters;
     private String jenkinsUrl;
     private Integer delay;
+    private boolean ignoreMissing;
+    private boolean ignoreUnqueued;
 
     public TriggerStep(String jenkinsUrl, String job, String credentialsId,
                        Map<String, String> parameters, Integer delay) {
@@ -143,6 +145,24 @@ public class TriggerStep extends Step implements Serializable {
 
     public Map<String, String> getParameters() {
         return parameters.isEmpty() ? null : parameters;
+    }
+
+    public boolean isIgnoreMissing() {
+        return ignoreMissing;
+    }
+
+    @DataBoundSetter
+    public void setIgnoreMissing(boolean ignoreMissing) {
+        this.ignoreMissing = ignoreMissing;
+    }
+
+    public boolean isIgnoreUnqueued() {
+        return ignoreUnqueued;
+    }
+
+    @DataBoundSetter
+    public void setIgnoreUnqueued(boolean ignoreUnqueued) {
+        this.ignoreUnqueued = ignoreUnqueued;
     }
 
     @Override
@@ -293,7 +313,7 @@ public class TriggerStep extends Step implements Serializable {
         }
     }
 
-    public static class Execution extends SynchronousStepExecution<Integer> {
+    public static class Execution extends SynchronousStepExecution<String> {
 
         private static final long serialVersionUID = 1L;
         @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED", justification = "Only used when starting.")
@@ -305,7 +325,7 @@ public class TriggerStep extends Step implements Serializable {
         }
 
         @Override
-        protected Integer run() throws Exception {
+        protected String run() throws Exception {
             Run<?, ?> run = getContext().get(Run.class);
             if (run == null) {
                 throw new MissingContextVariableException(Run.class);
@@ -378,9 +398,31 @@ public class TriggerStep extends Step implements Serializable {
                 int responseCode = connection.getResponseCode();
                 listener.getLogger().printf("[%tc] Trigger returned HTTP/%d%n", new Date(), responseCode);
                 if (responseCode == 404) {
-                    throw new FileNotFoundException(String.format("%s for job %s", triggerUrl, step.job));
+                    if (step.ignoreMissing) {
+                        listener.getLogger().printf("[%tc] Job %s not found%n", new Date(), step.job);
+                        return "about:missing";
+                    }
+                    throw new AbortException(
+                            "Job " + step.job + " was not found on " + jenkinsUrl + " using the supplied build token"
+                    );
                 }
-                return responseCode;
+                if (responseCode == 302) {
+                    if (step.ignoreUnqueued) {
+                        listener.getLogger().printf("[%tc] Job %s not queued%n", new Date(), step.job);
+                        return "about:unqueued";
+                    }
+                    throw new AbortException(
+                            "Job " + step.job + " on " + jenkinsUrl + " was not accepted into the build queue"
+                    );
+                }
+                String location = connection.getHeaderField("Location");
+                if (location.startsWith("/")) {
+                    location = StringUtils.removeEnd(jenkinsUrl, "/") + location;
+                }
+                listener.getLogger().printf("[%tc] Job queued as %s%n",
+                        new Date(), HyperlinkNote.encodeTo(location, location)
+                );
+                return location;
             } finally {
                 connection.disconnect();
             }
