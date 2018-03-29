@@ -33,7 +33,7 @@
   </parent>
 
   <artifactId>build-token-trigger</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1-SNAPSHOT</version>
   <packaging>hpi</packaging>
 
   <name>Build Token Trigger Plugin</name>
@@ -44,7 +44,7 @@
   <scm>
     <connection>scm:git:ssh://git@github.com/jenkinsci/build-token-trigger-plugin.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/jenkinsci/build-token-trigger-plugin.git</developerConnection>
-    <tag>build-token-trigger-1.0.0</tag>
+    <tag>HEAD</tag>
   </scm>
 
   <properties>
