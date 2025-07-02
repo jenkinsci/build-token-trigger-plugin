@@ -77,7 +77,7 @@ import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerRequest2;
 
 /**
  * Pipeline step to trigger a build job on a remote Jenkins using a {@link BuildAuthorizationToken}.
@@ -190,7 +190,7 @@ public class TriggerStep extends Step implements Serializable {
         }
 
         @Override
-        public TriggerStep newInstance(@Nullable StaplerRequest req, @Nonnull JSONObject json)
+        public TriggerStep newInstance(@Nullable StaplerRequest2 req, @Nonnull JSONObject json)
                 throws FormException {
             Map<String, String> parameters = new HashMap<>();
             Object parametersList = json.get("parametersList");
