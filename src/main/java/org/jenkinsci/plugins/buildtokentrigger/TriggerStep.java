@@ -27,6 +27,8 @@ import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.IdCredentials;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
 import hudson.Extension;
@@ -60,13 +62,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import jenkins.model.Jenkins;
 import jenkins.model.JenkinsLocationConfiguration;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jenkinsci.plugins.workflow.steps.MissingContextVariableException;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -77,7 +77,8 @@ import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerRequest2;
+import org.kohsuke.stapler.verb.POST;
 
 /**
  * Pipeline step to trigger a build job on a remote Jenkins using a {@link BuildAuthorizationToken}.
@@ -183,14 +184,14 @@ public class TriggerStep extends Step implements Serializable {
             return "buildTokenTrigger";
         }
 
-        @Nonnull
+        @NonNull
         @Override
         public String getDisplayName() {
             return Messages.TriggerStep_DisplayName();
         }
 
         @Override
-        public TriggerStep newInstance(@Nullable StaplerRequest req, @Nonnull JSONObject json)
+        public TriggerStep newInstance(@CheckForNull StaplerRequest2 req, @NonNull JSONObject json)
                 throws FormException {
             Map<String, String> parameters = new HashMap<>();
             Object parametersList = json.get("parametersList");
@@ -252,6 +253,7 @@ public class TriggerStep extends Step implements Serializable {
             return FormValidation.ok();
         }
 
+        @POST
         public FormValidation doCheckJenkinsUrl(@AncestorInPath Item owner,
                                                 @QueryParameter String value)
                 throws IOException {
@@ -270,7 +272,7 @@ public class TriggerStep extends Step implements Serializable {
                         "Will assume <code>" + Util.xmlEscape(url) + "</code> as the Jenkins URL");
             }
             URL url = new URL(TriggerCredentialsImpl.normalizeUrl(value));
-            ProxyConfiguration proxy = Jenkins.getInstance().proxy;
+            ProxyConfiguration proxy = Jenkins.get().proxy;
             HttpURLConnection connection;
             if (proxy == null) {
                 connection = (HttpURLConnection) url.openConnection();
@@ -291,6 +293,7 @@ public class TriggerStep extends Step implements Serializable {
 
         }
 
+        @POST
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item owner,
                                                      @QueryParameter("jenkinsUrl") String jenkinsUrl,
                                                      @QueryParameter String value) {
@@ -301,8 +304,8 @@ public class TriggerStep extends Step implements Serializable {
                     IdCredentials.class,
                     owner,
                     owner instanceof Queue.Task
-                            ? Tasks.getAuthenticationOf((Queue.Task) owner)
-                            : ACL.SYSTEM,
+                            ? Tasks.getAuthenticationOf2((Queue.Task) owner)
+                            : ACL.SYSTEM2,
                     URIRequirementBuilder.fromUri(jenkinsUrl).build(),
                     CredentialsMatchers.allOf(
                             CredentialsMatchers.instanceOf(TriggerCredentials.class),
@@ -378,7 +381,7 @@ public class TriggerStep extends Step implements Serializable {
                 data.append(URLEncoder.encode(entry.getValue(), "UTF-8"));
             }
             URL trigger = new URL(triggerUrl);
-            ProxyConfiguration proxy = Jenkins.getInstance().proxy;
+            ProxyConfiguration proxy = Jenkins.get().proxy;
             HttpURLConnection connection;
             if (proxy == null) {
                 connection = (HttpURLConnection) trigger.openConnection();

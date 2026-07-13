@@ -29,7 +29,7 @@ import com.cloudbees.plugins.credentials.common.PasswordCredentials;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.BuildAuthorizationToken;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * A {@link BuildAuthorizationToken} for another Jenkins.
