@@ -23,6 +23,7 @@
  */
 package org.jenkinsci.plugins.buildtokentrigger;
 
+import com.cloudbees.plugins.credentials.CredentialsMatcher;
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.IdCredentials;
@@ -309,10 +310,15 @@ public class TriggerStep extends Step implements Serializable {
                     URIRequirementBuilder.fromUri(jenkinsUrl).build(),
                     CredentialsMatchers.allOf(
                             CredentialsMatchers.instanceOf(TriggerCredentials.class),
-                            CredentialsMatchers
-                                    .withProperty("jenkinsUrl", TriggerCredentialsImpl.normalizeUrl(jenkinsUrl))
+                            matchingJenkinsUrl(jenkinsUrl)
                     )
             );
+        }
+
+        static CredentialsMatcher matchingJenkinsUrl(String jenkinsUrl) {
+            String normalizedUrl = TriggerCredentialsImpl.normalizeUrl(jenkinsUrl);
+            return credentials -> credentials instanceof TriggerCredentials
+                    && StringUtils.equals(((TriggerCredentials) credentials).getJenkinsUrl(), normalizedUrl);
         }
     }
 
