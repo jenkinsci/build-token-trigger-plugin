@@ -262,8 +262,7 @@ public class TriggerStep extends Step implements Serializable {
                 return FormValidation.ok();
             }
             if (StringUtils.isBlank(value)) {
-                JenkinsLocationConfiguration cfg = JenkinsLocationConfiguration.get();
-                String url = cfg == null ? null : cfg.getUrl();
+                String url = JenkinsLocationConfiguration.get().getUrl();
                 if (StringUtils.isBlank(url)) {
                     return FormValidation
                             .error("No Jenkins URL specified and this Jenkins has not been configured with a root URL"
@@ -342,8 +341,7 @@ public class TriggerStep extends Step implements Serializable {
             String jenkinsUrl = step.jenkinsUrl;
             if (StringUtils.isBlank(jenkinsUrl)) {
                 // default to own
-                JenkinsLocationConfiguration cfg = JenkinsLocationConfiguration.get();
-                jenkinsUrl = cfg == null ? jenkinsUrl : cfg.getUrl();
+                jenkinsUrl = JenkinsLocationConfiguration.get().getUrl();
             }
             if (StringUtils.isBlank(jenkinsUrl)) {
                 throw new IOException("Could not determine Jenkins URL");
