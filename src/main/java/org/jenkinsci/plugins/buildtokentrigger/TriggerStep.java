@@ -301,7 +301,7 @@ public class TriggerStep extends Step implements Serializable {
             if (owner == null || !owner.hasPermission(Item.CONFIGURE)) {
                 return new ListBoxModel().add(value);
             }
-            return CredentialsProvider.listCredentials(
+            return CredentialsProvider.listCredentialsInItem(
                     IdCredentials.class,
                     owner,
                     owner instanceof Queue.Task
