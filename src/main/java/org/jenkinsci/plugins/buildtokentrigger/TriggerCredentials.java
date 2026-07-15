@@ -29,7 +29,6 @@ import com.cloudbees.plugins.credentials.common.PasswordCredentials;
 import com.cloudbees.plugins.credentials.common.StandardCredentials;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.model.BuildAuthorizationToken;
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * A {@link BuildAuthorizationToken} for another Jenkins.
@@ -56,7 +55,7 @@ public interface TriggerCredentials extends StandardCredentials, PasswordCredent
         @Override
         public String getName(@NonNull TriggerCredentials credentials) {
             String description = credentials.getDescription();
-            if (StringUtils.isBlank(description)) {
+            if (description == null || description.isBlank()) {
                 return credentials.getId() + " [" + credentials.getJenkinsUrl() + "]";
             } else {
                 return credentials.getId() + " [" + credentials.getJenkinsUrl() + ("] (" + description + ")");
