@@ -47,16 +47,14 @@ class TriggerStepIntegrationTest {
         FreeStyleProject target = j.createFreeStyleProject("target");
         setAuthToken(target, "secret");
 
-        String jenkinsUrl = j.getURL().toString();
         SystemCredentialsProvider credentialsProvider = SystemCredentialsProvider.getInstance();
         credentialsProvider.getCredentials().add(new TriggerCredentialsImpl(
-                CredentialsScope.GLOBAL, "self-token", null, jenkinsUrl, "secret"));
+                CredentialsScope.GLOBAL, "self-token", null, j.getURL().toString(), "secret"));
         credentialsProvider.save();
 
         WorkflowJob caller = j.jenkins.createProject(WorkflowJob.class, "caller");
         caller.setDefinition(new CpsFlowDefinition(
-                "buildTokenTrigger credentialsId: 'self-token', jenkinsUrl: '" + jenkinsUrl
-                        + "', job: 'target', parameters: [:], delay: 0",
+                "buildTokenTrigger credentialsId: 'self-token', jenkinsUrl: JENKINS_URL, job: 'target'",
                 true));
 
         WorkflowRun callerBuild = j.buildAndAssertSuccess(caller);
