@@ -38,7 +38,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Locale;
-import org.apache.commons.lang.StringUtils;
+import java.util.Objects;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
@@ -66,7 +66,7 @@ public class TriggerCredentialsImpl extends BaseStandardCredentials implements T
      */
     @NonNull
     public static String normalizeUrl(@CheckForNull String url) {
-        url = StringUtils.defaultString(url);
+        url = url == null ? "" : url;
         try {
             URI uri = new URI(url).normalize();
             String scheme = uri.getScheme();
@@ -138,7 +138,7 @@ public class TriggerCredentialsImpl extends BaseStandardCredentials implements T
             try {
                 String url = normalizeUrl(value);
                 new URL(url);
-                if (StringUtils.equals(value, url)) {
+                if (Objects.equals(value, url)) {
                     return FormValidation.ok();
                 }
                 return FormValidation.warningWithMarkup(

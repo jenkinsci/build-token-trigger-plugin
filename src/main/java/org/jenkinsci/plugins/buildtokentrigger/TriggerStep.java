@@ -23,11 +23,13 @@
  */
 package org.jenkinsci.plugins.buildtokentrigger;
 
+import com.cloudbees.plugins.credentials.CredentialsMatcher;
 import com.cloudbees.plugins.credentials.CredentialsMatchers;
 import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.common.IdCredentials;
 import com.cloudbees.plugins.credentials.domains.URIRequirementBuilder;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
 import hudson.Extension;
 import hudson.ProxyConfiguration;
@@ -58,15 +60,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import jenkins.model.Jenkins;
 import jenkins.model.JenkinsLocationConfiguration;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
-import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.workflow.steps.MissingContextVariableException;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -77,7 +77,8 @@ import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.StaplerRequest;
+import org.kohsuke.stapler.StaplerRequest2;
+import org.kohsuke.stapler.verb.POST;
 
 /**
  * Pipeline step to trigger a build job on a remote Jenkins using a {@link BuildAuthorizationToken}.
@@ -183,14 +184,14 @@ public class TriggerStep extends Step implements Serializable {
             return "buildTokenTrigger";
         }
 
-        @Nonnull
+        @NonNull
         @Override
         public String getDisplayName() {
             return Messages.TriggerStep_DisplayName();
         }
 
         @Override
-        public TriggerStep newInstance(@Nullable StaplerRequest req, @Nonnull JSONObject json)
+        public TriggerStep newInstance(@CheckForNull StaplerRequest2 req, @NonNull JSONObject json)
                 throws FormException {
             Map<String, String> parameters = new HashMap<>();
             Object parametersList = json.get("parametersList");
@@ -214,7 +215,7 @@ public class TriggerStep extends Step implements Serializable {
             }
             String delayStr = json.getString("delay");
             Integer delay;
-            if (StringUtils.isBlank(delayStr)) {
+            if (isBlank(delayStr)) {
                 delay = null;
             } else {
                 try {
@@ -231,7 +232,7 @@ public class TriggerStep extends Step implements Serializable {
         }
 
         public FormValidation doCheckDelay(@QueryParameter String value) {
-            if (StringUtils.isBlank(value)) {
+            if (isBlank(value)) {
                 return FormValidation.ok();
             }
             try {
@@ -246,22 +247,22 @@ public class TriggerStep extends Step implements Serializable {
         }
 
         public FormValidation doCheckJob(@QueryParameter String value) {
-            if (StringUtils.isBlank(value)) {
+            if (isBlank(value)) {
                 return FormValidation.error("Must specify job to trigger");
             }
             return FormValidation.ok();
         }
 
+        @POST
         public FormValidation doCheckJenkinsUrl(@AncestorInPath Item owner,
                                                 @QueryParameter String value)
                 throws IOException {
             if (owner == null || !owner.hasPermission(Item.CONFIGURE)) {
                 return FormValidation.ok();
             }
-            if (StringUtils.isBlank(value)) {
-                JenkinsLocationConfiguration cfg = JenkinsLocationConfiguration.get();
-                String url = cfg == null ? null : cfg.getUrl();
-                if (StringUtils.isBlank(url)) {
+            if (isBlank(value)) {
+                String url = JenkinsLocationConfiguration.get().getUrl();
+                if (isBlank(url)) {
                     return FormValidation
                             .error("No Jenkins URL specified and this Jenkins has not been configured with a root URL"
                                     + " so cannot use that as a default");
@@ -270,7 +271,7 @@ public class TriggerStep extends Step implements Serializable {
                         "Will assume <code>" + Util.xmlEscape(url) + "</code> as the Jenkins URL");
             }
             URL url = new URL(TriggerCredentialsImpl.normalizeUrl(value));
-            ProxyConfiguration proxy = Jenkins.getInstance().proxy;
+            ProxyConfiguration proxy = Jenkins.get().proxy;
             HttpURLConnection connection;
             if (proxy == null) {
                 connection = (HttpURLConnection) url.openConnection();
@@ -280,7 +281,7 @@ public class TriggerStep extends Step implements Serializable {
             try {
                 connection.getResponseCode();
                 String version = connection.getHeaderField("X-Jenkins");
-                if (StringUtils.isBlank(version)) {
+                if (isBlank(version)) {
                     return FormValidation.warningWithMarkup(
                             "Does not look like a Jenkins URL, expecting <code>X-Jenkins</code> header");
                 }
@@ -291,32 +292,41 @@ public class TriggerStep extends Step implements Serializable {
 
         }
 
+        @POST
         public ListBoxModel doFillCredentialsIdItems(@AncestorInPath Item owner,
                                                      @QueryParameter("jenkinsUrl") String jenkinsUrl,
                                                      @QueryParameter String value) {
             if (owner == null || !owner.hasPermission(Item.CONFIGURE)) {
                 return new ListBoxModel().add(value);
             }
-            return CredentialsProvider.listCredentials(
+            return CredentialsProvider.listCredentialsInItem(
                     IdCredentials.class,
                     owner,
                     owner instanceof Queue.Task
-                            ? Tasks.getAuthenticationOf((Queue.Task) owner)
-                            : ACL.SYSTEM,
+                            ? Tasks.getAuthenticationOf2((Queue.Task) owner)
+                            : ACL.SYSTEM2,
                     URIRequirementBuilder.fromUri(jenkinsUrl).build(),
                     CredentialsMatchers.allOf(
                             CredentialsMatchers.instanceOf(TriggerCredentials.class),
-                            CredentialsMatchers
-                                    .withProperty("jenkinsUrl", TriggerCredentialsImpl.normalizeUrl(jenkinsUrl))
+                            matchingJenkinsUrl(jenkinsUrl)
                     )
             );
+        }
+
+        static CredentialsMatcher matchingJenkinsUrl(String jenkinsUrl) {
+            String normalizedUrl = TriggerCredentialsImpl.normalizeUrl(jenkinsUrl);
+            return credentials -> credentials instanceof TriggerCredentials
+                    && Objects.equals(((TriggerCredentials) credentials).getJenkinsUrl(), normalizedUrl);
+        }
+
+        private static boolean isBlank(String value) {
+            return value == null || value.isBlank();
         }
     }
 
     public static class Execution extends SynchronousStepExecution<String> {
 
         private static final long serialVersionUID = 1L;
-        @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED", justification = "Only used when starting.")
         private transient final TriggerStep step;
 
         Execution(TriggerStep step, StepContext context) {
@@ -331,12 +341,11 @@ public class TriggerStep extends Step implements Serializable {
                 throw new MissingContextVariableException(Run.class);
             }
             String jenkinsUrl = step.jenkinsUrl;
-            if (StringUtils.isBlank(jenkinsUrl)) {
+            if (isBlank(jenkinsUrl)) {
                 // default to own
-                JenkinsLocationConfiguration cfg = JenkinsLocationConfiguration.get();
-                jenkinsUrl = cfg == null ? jenkinsUrl : cfg.getUrl();
+                jenkinsUrl = JenkinsLocationConfiguration.get().getUrl();
             }
-            if (StringUtils.isBlank(jenkinsUrl)) {
+            if (isBlank(jenkinsUrl)) {
                 throw new IOException("Could not determine Jenkins URL");
             }
             jenkinsUrl = TriggerCredentialsImpl.normalizeUrl(jenkinsUrl);
@@ -347,15 +356,15 @@ public class TriggerStep extends Step implements Serializable {
                 throw new CredentialNotFoundException(
                         "Could not find credentials entry with ID '" + step.credentialsId + "'");
             }
-            if (!StringUtils.equals(jenkinsUrl, credentials.getJenkinsUrl())) {
+            if (!Objects.equals(jenkinsUrl, credentials.getJenkinsUrl())) {
                 throw new CredentialNotFoundException(
                         "Credentials with ID '" + step.credentialsId + "' are for " + credentials.getJenkinsUrl()
                                 + " not " + jenkinsUrl);
             }
             Secret secret = credentials.getPassword();
-            String jobUrl = StringUtils.removeEnd(jenkinsUrl, "/")
+            String jobUrl = removeTrailingSlash(jenkinsUrl)
                     + "/job/"
-                    + StringUtils.removeStart(StringUtils.removeEnd(step.job, "/"), "/")
+                    + removeLeadingSlash(removeTrailingSlash(step.job))
                     .replace("/", "/job/");
             TaskListener listener = getContext().get(TaskListener.class);
             assert listener != null;
@@ -378,7 +387,7 @@ public class TriggerStep extends Step implements Serializable {
                 data.append(URLEncoder.encode(entry.getValue(), "UTF-8"));
             }
             URL trigger = new URL(triggerUrl);
-            ProxyConfiguration proxy = Jenkins.getInstance().proxy;
+            ProxyConfiguration proxy = Jenkins.get().proxy;
             HttpURLConnection connection;
             if (proxy == null) {
                 connection = (HttpURLConnection) trigger.openConnection();
@@ -417,7 +426,7 @@ public class TriggerStep extends Step implements Serializable {
                 }
                 String location = connection.getHeaderField("Location");
                 if (location.startsWith("/")) {
-                    location = StringUtils.removeEnd(jenkinsUrl, "/") + location;
+                    location = removeTrailingSlash(jenkinsUrl) + location;
                 }
                 listener.getLogger().printf("[%tc] Job queued as %s%n",
                         new Date(), HyperlinkNote.encodeTo(location, location)
@@ -426,6 +435,18 @@ public class TriggerStep extends Step implements Serializable {
             } finally {
                 connection.disconnect();
             }
+        }
+
+        private static boolean isBlank(String value) {
+            return value == null || value.isBlank();
+        }
+
+        private static String removeLeadingSlash(String value) {
+            return value.startsWith("/") ? value.substring(1) : value;
+        }
+
+        private static String removeTrailingSlash(String value) {
+            return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
         }
 
     }
