@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+  <Match>
+    <!-- Synchronous step executions are not persisted while run() is active. -->
+    <And>
+      <Bug pattern="SE_TRANSIENT_FIELD_NOT_RESTORED" />
+      <Class name="org.jenkinsci.plugins.buildtokentrigger.TriggerStep$Execution" />
+      <Field name="step" />
+    </And>
+  </Match>
+</FindBugsFilter>
